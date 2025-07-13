@@ -1,735 +1,366 @@
 <!DOCTYPE html>
 <html lang="tr">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>101 Okey 3D: İnteraktif Taşlar ve Bot</title>
-    <style>
-        body {
-            margin: 0;
-            overflow: hidden;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            color: #fff;
-            background-color: #1a1a1a; /* Daha koyu, sofistike arka plan */
-        }
-        #game-container {
-            width: 100vw;
-            height: 100vh;
-            display: block;
-        }
-        canvas {
-            display: block;
-        }
-        #info-panel {
-            position: absolute;
-            top: 15px;
-            left: 15px;
-            background: rgba(0, 0, 0, 0.75); /* Daha opak panel */
-            padding: 20px;
-            border-radius: 12px;
-            font-size: 1.15em;
-            z-index: 10;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
-        }
-        #info-panel p {
-            margin: 8px 0;
-            line-height: 1.4;
-        }
-        #action-buttons {
-            position: absolute;
-            bottom: 25px;
-            left: 50%;
-            transform: translateX(-50%);
-            z-index: 10;
-            display: flex;
-            gap: 20px; /* Butonlar arası boşluk */
-        }
-        .game-button {
-            background-color: #007bff; /* Mavi, modern buton */
-            color: white;
-            padding: 15px 30px;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-            font-size: 1.3em;
-            font-weight: bold;
-            transition: background-color 0.3s ease, transform 0.1s ease;
-            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
-        }
-        .game-button:hover {
-            background-color: #0056b3;
-        }
-        .game-button:active {
-            transform: translateY(2px);
-            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
-        }
-        .game-button:disabled {
-            background-color: #6c757d; /* Pasif buton rengi */
-            cursor: not-allowed;
-            box-shadow: none;
-        }
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Cimbom City - İstanbul GTA Mini</title>
+<style>
+  /* Genel stil */
+  body, html {
+    margin: 0; padding: 0; overflow: hidden;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: #121212;
+    color: #eee;
+    user-select: none;
+  }
+  #infoPanel {
+    position: fixed; top: 10px; left: 10px; color: #fff;
+    background: rgba(0,0,0,0.7); padding: 10px 15px;
+    border-radius: 8px; font-size: 14px; z-index: 100;
+    width: 230px;
+  }
+  #weaponPanel {
+    position: fixed; bottom: 150px; right: 30px;
+    background: rgba(0,0,0,0.8); border-radius: 12px;
+    padding: 20px; width: 220px; color: #00aaff;
+    font-weight: bold; box-shadow: 0 0 20px #00aaffaa;
+  }
+  #weaponPanel button {
+    background: #0077cc; border: none; padding: 8px 12px;
+    margin: 5px; border-radius: 10px;
+    cursor: pointer; color: white;
+    font-weight: 700; font-size: 14px;
+    transition: background 0.3s ease;
+  }
+  #weaponPanel button:hover {
+    background: #005fa3;
+  }
+  #message {
+    position: fixed; bottom: 320px; left: 50%;
+    transform: translateX(-50%);
+    color: yellow; font-weight: bold;
+    font-size: 20px; background: rgba(0,0,0,0.6);
+    padding: 10px 20px; border-radius: 10px;
+    user-select:none; display:none;
+    z-index: 1000;
+  }
+  #joystick {
+    position: fixed; bottom: 40px; left: 40px;
+    width: 120px; height: 120px;
+    background: rgba(255,255,255,0.1);
+    border-radius: 50%; touch-action: none;
+  }
+  #stick {
+    position: absolute; width: 60px; height: 60px;
+    background: rgba(0,170,255,0.8);
+    border-radius: 50%; top: 30px; left: 30px;
+    transition: top 0.1s, left 0.1s;
+  }
+  canvas { display: block; }
 
-        /* Taşın üzerine gelince (hover) ve seçilince (selected) efektleri */
-        .tile-hover {
-            outline: 2px solid yellow; /* Sarı dış çizgi */
-        }
-        .tile-selected {
-            outline: 3px solid limegreen; /* Yeşil dış çizgi */
-        }
-    </style>
+</style>
 </head>
 <body>
-    <div id="game-container"></div>
-    <div id="info-panel">
-        <p>Sıra: <span id="current-turn">Oyuncu</span></p>
-        <p>Taş Sayısı (El): <span id="player-tile-count">0</span></p>
-        <p>Atılan Taş Sayısı: <span id="discard-tile-count">0</span></p>
-        <p>Mesaj: <span id="game-message">Oyuna hoş geldiniz!</span></p>
-    </div>
-    <div id="action-buttons">
-        <button class="game-button" id="draw-pile-btn">Yerden Çek</button>
-        <button class="game-button" id="draw-discard-btn">Atılanı Çek</button>
-        <button class="game-button" id="discard-tile-btn" disabled>Taş At</button>
-        <button class="game-button" id="declare-hand-btn" disabled>El Aç</button>
-    </div>
 
-    <script type="module">
-        import * as THREE from 'https://unpkg.com/three@0.165.0/build/three.module.js';
-        import { OrbitControls } from 'https://unpkg.com/three@0.165.0/examples/jsm/controls/OrbitControls.js';
+<div id="infoPanel">
+  <div>Para: <span id="money">₺0</span></div>
+  <div>Can: <span id="health">100</span>%</div>
+  <div>Silah: <span id="weaponName">Tabanca</span></div>
+  <div>Mermi: <span id="ammoCount">∞</span></div>
+</div>
 
-        // --- Global Değişkenler ve Three.js Nesneleri ---
-        let scene, camera, renderer, controls;
-        let gameContainer = document.getElementById('game-container');
-        let raycaster; // Fare tıklamalarını algılamak için
-        let mouse;     // Fare pozisyonunu tutmak için
-        let INTERSECTED; // Üzerine gelinen nesne
-        let SELECTED_TILE = null; // Seçilen taş
+<div id="weaponPanel">
+  <div>Silahlar:</div>
+  <button onclick="switchWeapon('tabanca')">Tabanca</button>
+  <button onclick="switchWeapon('tufek')">Tüfek</button>
+  <button onclick="switchWeapon('pompalı')">Pompalı</button>
+</div>
 
-        // UI Elementleri
-        let currentTurnDisplay = document.getElementById('current-turn');
-        let playerTileCountDisplay = document.getElementById('player-tile-count');
-        let discardTileCountDisplay = document.getElementById('discard-tile-count');
-        let gameMessageDisplay = document.getElementById('game-message');
-        let discardTileBtn = document.getElementById('discard-tile-btn');
-        let declareHandBtn = document.getElementById('declare-hand-btn');
+<div id="message"></div>
 
-        // Oyunun Durumu (State Management)
-        const gameState = {
-            currentPlayer: 'player', // 'player' veya 'bot'
-            turnPhase: 'draw', // 'draw' (çekme), 'play' (oynama), 'discard' (atma)
-            deck: [], // Yere kapalı taşlar
-            discardPile: [], // Atılan taşlar
-            playerHand: [], // Oyuncunun elindeki 3D taş nesneleri
-            botHand: [], // Botun elindeki 3D taş nesneleri
-            tableMelds: [], // Masaya açılmış seriler
-            openOkey: null, // Açık okey taşı
-            lastDiscardedTile: null // En son atılan taşı referansı
-        };
+<div id="joystick"><div id="stick"></div></div>
 
-        // Oyun Kuralları ve Değerler
-        const OKEY_TILE_WIDTH = 0.8;
-        const OKEY_TILE_HEIGHT = 0.2;
-        const OKEY_TILE_DEPTH = 1.2;
-        const PLAYER_HAND_Z = 6;
-        const BOT_HAND_Z = -6;
-        const DISCARD_PILE_Z = 0; // Masanın ortası
-        const DISCARD_PILE_X = 8; // Atılan taşların duracağı yer
+<script src="https://cdn.jsdelivr.net/npm/three@0.152.2/build/three.min.js"></script>
+<script>
 
-        // Taş Renkleri ve Değerleri (Okey için)
-        const TILE_COLORS = {
-            RED: 0xFF0000,
-            BLUE: 0x0000FF,
-            GREEN: 0x008000,
-            YELLOW: 0xFFA500 // Okey'de Sarı yerine Genellikle Sarımsı Turuncu kullanılır
-        };
+  // ==== TEMEL DEĞİŞKENLER ====
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x87ceeb); // açık gökyüzü
 
-        const JOKER_COLOR = 0x800080; // Mor Joker
-        const FAKE_JOKER_COLOR = 0xCCCCCC; // Gri Sahte Joker
+  const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+  camera.position.set(0, 5, 10);
 
-        // --- Three.js Başlangıç ve Sahne Kurulumu ---
-        function initThreeJS() {
-            // Sahne
-            scene = new THREE.Scene();
-            scene.background = new THREE.Color(0x1a1a1a); // Çok koyu gri
+  const renderer = new THREE.WebGLRenderer({antialias:true});
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  document.body.appendChild(renderer.domElement);
 
-            // Kamera
-            camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 1000);
-            camera.position.set(0, 15, 25); // Daha yüksek ve uzaktan bakış
-            camera.lookAt(0, 0, 0);
+  // --- IŞIKLAR ---
+  const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+  scene.add(ambientLight);
+  const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+  directionalLight.position.set(5, 10, 7);
+  scene.add(directionalLight);
 
-            // Renderer
-            renderer = new THREE.WebGLRenderer({ antialias: true });
-            renderer.setSize(window.innerWidth, window.innerHeight);
-            gameContainer.appendChild(renderer.domElement);
+  // --- ZEMİN ---
+  const groundMaterial = new THREE.MeshStandardMaterial({color: 0x446622});
+  const ground = new THREE.Mesh(new THREE.PlaneGeometry(100,100), groundMaterial);
+  ground.rotation.x = -Math.PI/2;
+  scene.add(ground);
 
-            // Orbit Kontrolleri
-            controls = new OrbitControls(camera, renderer.domElement);
-            controls.enableDamping = true;
-            controls.dampingFactor = 0.08;
-            controls.screenSpacePanning = false;
-            controls.maxPolarAngle = Math.PI / 2.2; // Kameranın aşırı aşağı bakmasını engelle
-            controls.minDistance = 15;
-            controls.maxDistance = 40;
+  // --- BİNALAR (SOKAKLAR) ---
+  function createBuilding(x, z, width, depth, height, color=0x666666){
+    const b = new THREE.Mesh(
+      new THREE.BoxGeometry(width, height, depth),
+      new THREE.MeshStandardMaterial({color})
+    );
+    b.position.set(x, height/2, z);
+    scene.add(b);
+    return b;
+  }
 
-            // Işıklandırma (Daha dinamik ve modern)
-            const dirLight1 = new THREE.DirectionalLight(0xffffff, 0.8);
-            dirLight1.position.set(10, 20, 10);
-            dirLight1.castShadow = true;
-            dirLight1.shadow.mapSize.width = 1024;
-            dirLight1.shadow.mapSize.height = 1024;
-            dirLight1.shadow.camera.near = 0.5;
-            dirLight1.shadow.camera.far = 50;
-            scene.add(dirLight1);
+  // İstanbul sokakları için binalar (örnek)
+  createBuilding(-8, -8, 6, 6, 6, 0x444444);
+  createBuilding(-8, 2, 6, 6, 7, 0x555555);
+  createBuilding(8, -8, 6, 6, 6, 0x666666);
+  createBuilding(8, 2, 6, 6, 5, 0x777777);
 
-            const dirLight2 = new THREE.DirectionalLight(0xffffff, 0.4);
-            dirLight2.position.set(-10, 15, -10);
-            scene.add(dirLight2);
+  // Galata Kulesi (basit model)
+  const galata = new THREE.Mesh(
+    new THREE.CylinderGeometry(1, 2, 8, 16),
+    new THREE.MeshStandardMaterial({color: 0x996633})
+  );
+  galata.position.set(5, 4, -5);
+  scene.add(galata);
+  const galataRoof = new THREE.Mesh(
+    new THREE.ConeGeometry(1.5, 2, 16),
+    new THREE.MeshStandardMaterial({color: 0x663300})
+  );
+  galataRoof.position.set(5, 9, -5);
+  scene.add(galataRoof);
 
-            const ambientLight = new THREE.AmbientLight(0x404040, 0.7);
-            scene.add(ambientLight);
+  // --- OYUNCU ---
+  const player = new THREE.Mesh(
+    new THREE.BoxGeometry(1, 2, 1),
+    new THREE.MeshStandardMaterial({color: 0xffaa00})
+  );
+  player.position.set(0, 1, 0);
+  scene.add(player);
 
-            // --- 3D Oyun Masası ---
-            const tableGeometry = new THREE.BoxGeometry(28, 0.4, 18); // Daha büyük masa
-            const tableMaterial = new THREE.MeshStandardMaterial({
-                color: 0x2C3E50, // Koyu Gri/Mavi, modern bir ton
-                roughness: 0.6,
-                metalness: 0.3
-            });
-            const table = new THREE.Mesh(tableGeometry, tableMaterial);
-            table.position.y = -0.5;
-            scene.add(table);
+  // --- ARAÇ ---
+  const car = new THREE.Mesh(
+    new THREE.BoxGeometry(2, 1, 4),
+    new THREE.MeshStandardMaterial({color: 0x0044cc})
+  );
+  car.position.set(3, 0.5, 3);
+  scene.add(car);
 
-            // --- Oyuncu Alanları (Raflar) ---
-            const playerRackGeometry = new THREE.BoxGeometry(16, 0.2, 1.5);
-            const playerRackMaterial = new THREE.MeshStandardMaterial({ color: 0x34495E, roughness: 0.8 }); // Koyu gri-mavi
-            const playerRack = new THREE.Mesh(playerRackGeometry, playerRackMaterial);
-            playerRack.position.set(0, 0.05, PLAYER_HAND_Z);
-            scene.add(playerRack);
+  // --- MARKET ---
+  const market = new THREE.Mesh(
+    new THREE.BoxGeometry(4, 3, 4),
+    new THREE.MeshStandardMaterial({color: 0xff5555})
+  );
+  market.position.set(-4, 1.5, 6);
+  scene.add(market);
 
-            const botRack = new THREE.Mesh(playerRackGeometry.clone(), playerRackMaterial.clone());
-            botRack.position.set(0, 0.05, BOT_HAND_Z);
-            scene.add(botRack);
+  // --- NPC ---
+  function createNPC(x,z,color=0x00ff00){
+    const npc = new THREE.Mesh(
+      new THREE.BoxGeometry(1, 2, 1),
+      new THREE.MeshStandardMaterial({color})
+    );
+    npc.position.set(x, 1, z);
+    npc.userData = {
+      direction: new THREE.Vector3((Math.random()-0.5)*0.1, 0, (Math.random()-0.5)*0.1)
+    };
+    scene.add(npc);
+    return npc;
+  }
+  const npcs = [];
+  for(let i=0; i<5; i++){
+    npcs.push(createNPC(Math.random()*20-10, Math.random()*20-10));
+  }
 
-            // --- Atılan Taşlar Bölgesi (Discard Pile Area) ---
-            const discardAreaGeometry = new THREE.BoxGeometry(4, 0.1, 4);
-            const discardAreaMaterial = new THREE.MeshStandardMaterial({ color: 0x555555, transparent: true, opacity: 0.3 }); // Şeffaf gri
-            const discardArea = new THREE.Mesh(discardAreaGeometry, discardAreaMaterial);
-            discardArea.position.set(DISCARD_PILE_X, 0.01, DISCARD_PILE_Z);
-            scene.add(discardArea);
+  // --- OYUN DEĞİŞKENLERİ ---
+  let money = 0;
+  let health = 100;
+  const weapons = {
+    tabanca: { name: 'Tabanca', ammo: Infinity },
+    tufek: { name: 'Tüfek', ammo: 30 },
+    pompalı: { name: 'Pompalı', ammo: 8 }
+  };
+  let currentWeapon = 'tabanca';
+  let inCar = false;
 
-            // Raycaster ve Mouse ayarları (Taş seçimi için)
-            raycaster = new THREE.Raycaster();
-            mouse = new THREE.Vector2();
+  // --- HTML ELEMENTLERİ ---
+  const moneyEl = document.getElementById('money');
+  const healthEl = document.getElementById('health');
+  const weaponNameEl = document.getElementById('weaponName');
+  const ammoCountEl = document.getElementById('ammoCount');
+  const messageEl = document.getElementById('message');
 
-            // Olay Dinleyicileri
-            window.addEventListener('resize', onWindowResize, false);
-            gameContainer.addEventListener('mousemove', onMouseMove, false);
-            gameContainer.addEventListener('click', onClick, false);
+  // --- JOYSTICK KONTROL ---
+  const joystick = document.getElementById('joystick');
+  const stick = document.getElementById('stick');
+  let joystickActive = false;
+  let startX, startY;
+  let deltaX = 0, deltaY = 0;
 
-            document.getElementById('draw-pile-btn').addEventListener('click', drawFromPile);
-            document.getElementById('draw-discard-btn').addEventListener('click', drawFromDiscard);
-            document.getElementById('discard-tile-btn').addEventListener('click', discardSelectedTile);
-            document.getElementById('declare-hand-btn').addEventListener('click', declareHand);
+  joystick.addEventListener('pointerdown', e => {
+    joystickActive = true;
+    startX = e.clientX;
+    startY = e.clientY;
+  });
+  window.addEventListener('pointerup', e => {
+    joystickActive = false;
+    deltaX = 0;
+    deltaY = 0;
+    stick.style.left = '30px';
+    stick.style.top = '30px';
+  });
+  window.addEventListener('pointermove', e => {
+    if(!joystickActive) return;
+    deltaX = e.clientX - startX;
+    deltaY = e.clientY - startY;
+    const maxDist = 40;
+    if(deltaX > maxDist) deltaX = maxDist;
+    if(deltaX < -maxDist) deltaX = -maxDist;
+    if(deltaY > maxDist) deltaY = maxDist;
+    if(deltaY < -maxDist) deltaY = -maxDist;
+    stick.style.left = (30 + deltaX) + 'px';
+    stick.style.top = (30 + deltaY) + 'px';
+  });
 
-            // Oyun Başlatma
-            initializeGame();
-            animate();
+  // --- KULLANICI İŞLEVLERİ ---
+  function updateUI(){
+    moneyEl.textContent = `₺${money}`;
+    healthEl.textContent = health;
+    weaponNameEl.textContent = weapons[currentWeapon].name;
+    ammoCountEl.textContent = weapons[currentWeapon].ammo === Infinity ? '∞' : weapons[currentWeapon].ammo;
+  }
+
+  function showMessage(text, duration=2000){
+    messageEl.textContent = text;
+    messageEl.style.display = 'block';
+    clearTimeout(messageEl._timeout);
+    messageEl._timeout = setTimeout(()=>{messageEl.style.display = 'none';}, duration);
+  }
+
+  function switchWeapon(w){
+    if(!weapons[w]) return;
+    currentWeapon = w;
+    updateUI();
+    showMessage(`Silah değişti: ${weapons[w].name}`);
+  }
+
+  function fireWeapon(){
+    if(weapons[currentWeapon].ammo > 0){
+      if(weapons[currentWeapon].ammo !== Infinity){
+        weapons[currentWeapon].ammo--;
+      }
+      updateUI();
+      showMessage(`Ateş ettin: ${weapons[currentWeapon].name}`);
+    } else {
+      showMessage('Şarjör boş!');
+    }
+  }
+
+  // --- OYUNCU HAREKETİ ---
+  const playerSpeed = 5;
+  let moveX = 0;
+  let moveZ = 0;
+
+  // Klavye hareket kontrolleri (WASD)
+  const keys = {};
+  window.addEventListener('keydown', e => {
+    keys[e.key.toLowerCase()] = true;
+    if(e.code === 'Space'){
+      fireWeapon();
+    }
+    if(e.code === 'KeyE'){
+      // Araçta binme/iniş ve market soygunu kontrolü
+      if(player.position.distanceTo(car.position) < 3){
+        inCar = !inCar;
+        showMessage(inCar ? 'Arabaya bindin!' : 'Arabadan indik!');
+      } else if(player.position.distanceTo(market.position) < 3){
+        money += 1000;
+        showMessage('Market soyuldu! ₺1000 kazandın!');
+        updateUI();
+      }
+    }
+  });
+  window.addEventListener('keyup', e => {
+    keys[e.key.toLowerCase()] = false;
+  });
+
+  // --- NPC HAREKETİ ---
+  function updateNPCs(delta){
+    npcs.forEach(npc => {
+      npc.position.addScaledVector(npc.userData.direction, delta*10);
+      ['x','z'].forEach(axis => {
+        if(npc.position[axis] > 20 || npc.position[axis] < -20){
+          npc.userData.direction[axis] = -npc.userData.direction[axis];
         }
-
-        // --- Yardımcı Fonksiyonlar ---
-
-        // Okey Taşı Oluşturma Fonksiyonu
-        // Bu fonksiyon, gerçek okey taşlarını 3D olarak temsil edecek
-        // 'value' (1-13) ve 'color' (RED, BLUE vb.) alacak.
-        function createOkeyTile(id, value, colorName, isJoker = false, isFakeJoker = false) {
-            let tileColor;
-            let textColor = 0x000000; // Varsayılan yazı rengi siyah
-
-            if (isJoker) {
-                tileColor = JOKER_COLOR;
-                textColor = 0xFFFFFF; // Joker yazısı beyaz
-            } else if (isFakeJoker) {
-                tileColor = FAKE_JOKER_COLOR;
-                textColor = 0x000000; // Sahte Joker yazısı siyah
-            } else {
-                tileColor = TILE_COLORS[colorName.toUpperCase()];
-                if (colorName === 'red' || colorName === 'blue') { // Kırmızı ve Mavi taşlarda beyaz yazı daha iyi durabilir
-                    // textColor = 0xFFFFFF; // İsteğe bağlı
-                }
-            }
-
-            const material = new THREE.MeshStandardMaterial({
-                color: tileColor,
-                roughness: 0.6,
-                metalness: 0.2
-            });
-            const tileMesh = new THREE.Mesh(new THREE.BoxGeometry(OKEY_TILE_WIDTH, OKEY_TILE_HEIGHT, OKEY_TILE_DEPTH), material);
-
-            // Taşın üzerine sayı/joker yazısı ekleme (Basit metin örneği)
-            const loader = new THREE.FontLoader();
-            loader.load('https://raw.githubusercontent.com/mrdoob/three.js/dev/examples/fonts/helvetiker_regular.typeface.json', function (font) {
-                let textGeo;
-                if (isJoker) {
-                    textGeo = new THREE.TextGeometry('Joker', {
-                        font: font,
-                        size: 0.6,
-                        height: 0.05,
-                        curveSegments: 12
-                    });
-                } else if (isFakeJoker) {
-                    textGeo = new THREE.TextGeometry('Sahte', {
-                        font: font,
-                        size: 0.6,
-                        height: 0.05,
-                        curveSegments: 12
-                    });
-                } else {
-                    textGeo = new THREE.TextGeometry(value.toString(), {
-                        font: font,
-                        size: 0.7,
-                        height: 0.05,
-                        curveSegments: 12
-                    });
-                }
-                textGeo.computeBoundingBox();
-                const centerOffset = -0.5 * (textGeo.boundingBox.max.x - textGeo.boundingBox.min.x);
-
-                const textMaterial = new THREE.MeshBasicMaterial({ color: textColor });
-                const textMesh = new THREE.Mesh(textGeo, textMaterial);
-                textMesh.position.set(centerOffset, OKEY_TILE_HEIGHT / 2 + 0.01, OKEY_TILE_DEPTH / 2 - 0.01); // Taşın üstüne ve öne
-                textMesh.rotation.x = -Math.PI / 2; // Yere paralel
-                tileMesh.add(textMesh);
-            });
-
-            tileMesh.userData = { // Oyun mantığı için taş verileri
-                id: id,
-                value: value,
-                color: colorName,
-                isJoker: isJoker,
-                isFakeJoker: isFakeJoker,
-                owner: null // 'player', 'bot', 'deck', 'discard'
-            };
-            return tileMesh;
-        }
-
-        // Taşları Karıştır ve Dağıt
-        function initializeGame() {
-            gameState.deck = [];
-            const colors = ['red', 'blue', 'green', 'yellow'];
-            let tileId = 0;
-
-            // Normal Taşlar (1'den 13'e kadar, her renkten ikişer tane)
-            for (let i = 0; i < 2; i++) { // Her setten 2 tane
-                for (const color of colors) {
-                    for (let value = 1; value <= 13; value++) {
-                        gameState.deck.push({ id: tileId++, value, color, isJoker: false, isFakeJoker: false });
-                    }
-                }
-            }
-
-            // Jokerler (2 tane joker)
-            gameState.deck.push({ id: tileId++, value: null, color: null, isJoker: true, isFakeJoker: false });
-            gameState.deck.push({ id: tileId++, value: null, color: null, isJoker: true, isFakeJoker: false });
-
-            // Sahte Jokerler (2 tane sahte joker)
-            gameState.deck.push({ id: tileId++, value: null, color: null, isJoker: false, isFakeJoker: true });
-            gameState.deck.push({ id: tileId++, value: null, color: null, isJoker: false, isFakeJoker: true });
-
-
-            // Desteyi karıştır
-            shuffleArray(gameState.deck);
-
-            // Açık Okey taşını belirle (destenin en altındaki taşın bir fazlası)
-            // Normalde desteden çekilir ve yere açılır. Şimdilik rastgele bir tane belirleyelim.
-            gameState.openOkey = { value: Math.floor(Math.random() * 13) + 1, color: colors[Math.floor(Math.random() * colors.length)] };
-            console.log("Açık Okey:", gameState.openOkey);
-            gameMessageDisplay.textContent = `Açık Okey: ${gameState.openOkey.color.toUpperCase()} ${gameState.openOkey.value}`;
-
-            // Taşları Dağıt (3D olarak sahneye ekle)
-            // Oyuncuya 15, bota 14 taş
-            dealTiles(15, 'player');
-            dealTiles(14, 'bot'); // Botun taşları gizli olmalı, şimdilik renkli gösteriyoruz
-
-            updateUI();
-            switchTurn(); // Oyunu başlat, ilk sırayı belirle
-        }
-
-        function shuffleArray(array) {
-            for (let i = array.length - 1; i > 0; i--) {
-                const j = Math.floor(Math.random() * (i + 1));
-                [array[i], array[j]] = [array[j], array[i]];
-            }
-        }
-
-        function dealTiles(count, recipient) {
-            let xStart;
-            let zPos;
-            let currentHand = [];
-            let currentHandRef; // Referans olarak oyun durumu nesnesi
-
-            if (recipient === 'player') {
-                xStart = -(Math.floor(count / 2) * 0.9); // Ortadan başla
-                zPos = PLAYER_HAND_Z;
-                currentHandRef = gameState.playerHand;
-            } else { // bot
-                xStart = -(Math.floor(count / 2) * 0.9); // Ortadan başla
-                zPos = BOT_HAND_Z;
-                currentHandRef = gameState.botHand;
-            }
-
-            for (let i = 0; i < count; i++) {
-                if (gameState.deck.length > 0) {
-                    const tileData = gameState.deck.pop();
-                    tileData.owner = recipient;
-                    const tileMesh = createOkeyTile(tileData.id, tileData.value, tileData.color, tileData.isJoker, tileData.isFakeJoker);
-                    tileMesh.position.set(xStart + i * 0.9, OKEY_TILE_HEIGHT / 2, zPos);
-                    scene.add(tileMesh);
-                    currentHand.push(tileMesh); // 3D nesnesini ekle
-
-                    // Botun taşlarını gizle (görsel olarak)
-                    if (recipient === 'bot') {
-                         tileMesh.material.color.set(0x444444); // Gri/koyu renk yap
-                         tileMesh.rotation.z = Math.PI / 2; // Yan çevir
-                    }
-                }
-            }
-            currentHandRef.push(...currentHand); // 3D mesh referanslarını oyun durumuna ekle
-            sortHand(currentHandRef, recipient); // Taşları sırala (görsel olarak)
-        }
-
-        // Taşı görsel olarak sıralama (Şimdilik sadece x ekseninde düzeltme)
-        function sortHand(hand, owner) {
-            // Gerçek Okey oyununda taşlar değere ve renge göre sıralanır.
-            // Burada sadece basit bir görsel düzenleme yapıyoruz.
-            // Elinizdeki taşları mantıksal olarak sıralamanız (oyun mantığında) farklı olacaktır.
-            hand.sort((a, b) => {
-                // Jokerleri sona at
-                if (a.userData.isJoker && !b.userData.isJoker) return 1;
-                if (!a.userData.isJoker && b.userData.isJoker) return -1;
-                if (a.userData.isFakeJoker && !b.userData.isFakeJoker) return 1;
-                if (!a.userData.isFakeJoker && b.userData.isFakeJoker) return -1;
-
-                // Aynı renkteki taşları değere göre sırala
-                if (a.userData.color === b.userData.color) {
-                    return a.userData.value - b.userData.value;
-                }
-                // Farklı renkleri alfabetik sıraya göre (veya önceden belirlenmiş sıraya göre)
-                return a.userData.color.localeCompare(b.userData.color);
-            });
-
-            let xStart;
-            let zPos;
-            if (owner === 'player') {
-                xStart = -(Math.floor(hand.length / 2) * 0.9);
-                zPos = PLAYER_HAND_Z;
-            } else {
-                xStart = -(Math.floor(hand.length / 2) * 0.9);
-                zPos = BOT_HAND_Z;
-            }
-
-            hand.forEach((tileMesh, index) => {
-                tileMesh.position.x = xStart + index * 0.9;
-                tileMesh.position.y = OKEY_TILE_HEIGHT / 2; // Yüksekliği koru
-                tileMesh.position.z = zPos; // Z konumu
-            });
-        }
-
-
-        // --- UI Güncelleme ---
-        function updateUI() {
-            currentTurnDisplay.textContent = gameState.currentPlayer === 'player' ? 'Siz' : 'Bot';
-            playerTileCountDisplay.textContent = gameState.playerHand.length;
-            discardTileCountDisplay.textContent = gameState.discardPile.length;
-
-            // Buton durumlarını güncelle
-            if (gameState.currentPlayer === 'player') {
-                document.getElementById('draw-pile-btn').disabled = (gameState.turnPhase !== 'draw');
-                document.getElementById('draw-discard-btn').disabled = (gameState.turnPhase !== 'draw' || gameState.discardPile.length === 0);
-                discardTileBtn.disabled = (SELECTED_TILE === null || gameState.turnPhase !== 'discard'); // Taş seçilmeden atma butonu pasif
-                declareHandBtn.disabled = true; // El açma her zaman aktif değil, kural kontrolü sonrası aktifleşir
-            } else {
-                document.getElementById('draw-pile-btn').disabled = true;
-                document.getElementById('draw-discard-btn').disabled = true;
-                discardTileBtn.disabled = true;
-                declareHandBtn.disabled = true;
-            }
-        }
-
-        // --- Oyun Akışı ---
-        function switchTurn() {
-            if (gameState.currentPlayer === 'player') {
-                gameState.currentPlayer = 'bot';
-                gameState.turnPhase = 'draw'; // Botun da çekme fazıyla başla
-                gameMessageDisplay.textContent = "Sıra botta!";
-                setTimeout(botTurn, 2000); // 2 saniye sonra botun hamlesini yap
-            } else {
-                gameState.currentPlayer = 'player';
-                gameState.turnPhase = 'draw'; // Oyuncunun çekme fazıyla başla
-                gameMessageDisplay.textContent = "Sıra sizde! Taş çekin.";
-            }
-            updateUI();
-        }
-
-        // --- Oyuncu Aksiyonları ---
-        function drawFromPile() {
-            if (gameState.currentPlayer !== 'player' || gameState.turnPhase !== 'draw') {
-                gameMessageDisplay.textContent = "Şu an taş çekemezsiniz!";
-                return;
-            }
-            if (gameState.deck.length === 0) {
-                gameMessageDisplay.textContent = "Destede taş kalmadı!";
-                return;
-            }
-
-            const drawnTileData = gameState.deck.pop();
-            drawnTileData.owner = 'player';
-            const drawnTileMesh = createOkeyTile(drawnTileData.id, drawnTileData.value, drawnTileData.color, drawnTileData.isJoker, drawnTileData.isFakeJoker);
-            scene.add(drawnTileMesh);
-            gameState.playerHand.push(drawnTileMesh);
-
-            // Yeni çekilen taşı elin sonuna yerleştir ve sonra sırala
-            sortHand(gameState.playerHand, 'player');
-
-            gameMessageDisplay.textContent = `Yerden ${drawnTileData.color.toUpperCase()} ${drawnTileData.value || 'Joker'} çektiniz.`;
-            gameState.turnPhase = 'discard'; // Çektikten sonra atma fazına geç
-            updateUI();
-        }
-
-        function drawFromDiscard() {
-            if (gameState.currentPlayer !== 'player' || gameState.turnPhase !== 'draw') {
-                gameMessageDisplay.textContent = "Şu an taş çekemezsiniz!";
-                return;
-            }
-            if (gameState.discardPile.length === 0) {
-                gameMessageDisplay.textContent = "Atılan taş yok!";
-                return;
-            }
-
-            // En son atılan taşı al
-            const drawnTileData = gameState.discardPile.pop(); // Oyun durumu datasını al
-            const drawnTileMesh = gameState.lastDiscardedTile; // 3D mesh referansını al
-
-            // Masa üzerindeki yerini güncelle, eline ekle
-            drawnTileMesh.position.z = PLAYER_HAND_Z;
-            drawnTileMesh.position.x = gameState.playerHand.length * 0.9; // Elin sonuna ekle
-            drawnTileData.owner = 'player'; // Owner'ı güncelle
-
-            gameState.playerHand.push(drawnTileMesh); // 3D mesh'i eline ekle
-            gameState.lastDiscardedTile = null; // Atılan taş artık elde
-
-            sortHand(gameState.playerHand, 'player'); // Eli tekrar sırala
-
-            gameMessageDisplay.textContent = `Atılan ${drawnTileData.color.toUpperCase()} ${drawnTileData.value || 'Joker'} taşını çektiniz.`;
-            gameState.turnPhase = 'discard'; // Çektikten sonra atma fazına geç
-            updateUI();
-        }
-
-
-        function discardSelectedTile() {
-            if (gameState.currentPlayer !== 'player' || gameState.turnPhase !== 'discard') {
-                gameMessageDisplay.textContent = "Şu an taş atamazsınız!";
-                return;
-            }
-            if (!SELECTED_TILE) {
-                gameMessageDisplay.textContent = "Lütfen önce bir taş seçin!";
-                return;
-            }
-
-            // Seçilen taşı oyuncu elinden çıkar
-            const index = gameState.playerHand.indexOf(SELECTED_TILE);
-            if (index > -1) {
-                gameState.playerHand.splice(index, 1);
-            }
-
-            // Seçilen taşı atılanlar bölgesine taşı
-            SELECTED_TILE.position.set(
-                DISCARD_PILE_X + (Math.random() - 0.5) * 0.5, // Hafif rastgelelik
-                OKEY_TILE_HEIGHT / 2,
-                DISCARD_PILE_Z + (Math.random() - 0.5) * 0.5 // Hafif rastgelelik
-            );
-            SELECTED_TILE.rotation.y = Math.random() * Math.PI; // Rastgele döndür
-
-            // Oyun durumunu güncelle
-            gameState.discardPile.push(SELECTED_TILE.userData);
-            gameState.lastDiscardedTile = SELECTED_TILE; // Son atılan taşı kaydet
-
-            gameMessageDisplay.textContent = `Bir taş attınız: ${SELECTED_TILE.userData.color.toUpperCase()} ${SELECTED_TILE.userData.value || 'Joker'}`;
-
-            // Seçimi sıfırla
-            if (SELECTED_TILE) {
-                SELECTED_TILE.material.emissive.setHex(0x000000); // Highlight'ı kaldır
-                SELECTED_TILE = null;
-            }
-            discardTileBtn.disabled = true; // Atma butonu tekrar pasifleşir
-
-            sortHand(gameState.playerHand, 'player'); // Kalan taşları yeniden sırala
-            switchTurn(); // Sırayı bota geçir
-        }
-
-        function declareHand() {
-            if (gameState.currentPlayer !== 'player' || gameState.turnPhase !== 'discard') {
-                gameMessageDisplay.textContent = "El açmak için uygun zamanda değilsiniz!";
-                return;
-            }
-            gameMessageDisplay.textContent = "El açma denemesi (Geliştirilecek)!";
-            // Buraya elin kurallara uygun olup olmadığını kontrol eden mantık gelecek
-            // Eğer uygunsa, el açılır ve oyun bitişine geçilir.
-        }
-
-        // --- Botun Hamlesi ---
-        function botTurn() {
-            gameMessageDisplay.textContent = "Bot düşünüyor...";
-            console.log("Botun eli:", gameState.botHand.map(t => t.userData)); // Botun taş datalarını göster
-
-            // Botun çekme fazı
-            if (gameState.turnPhase === 'draw') {
-                // Basitçe yerden çeksin
-                setTimeout(() => {
-                    if (gameState.deck.length > 0) {
-                        const drawnTileData = gameState.deck.pop();
-                        drawnTileData.owner = 'bot';
-                        const drawnTileMesh = createOkeyTile(drawnTileData.id, drawnTileData.value, drawnTileData.color, drawnTileData.isJoker, drawnTileData.isFakeJoker);
-                        drawnTileMesh.material.color.set(0x444444); // Bot taşı gri olsun
-                        drawnTileMesh.rotation.z = Math.PI / 2; // Yan çevir
-                        scene.add(drawnTileMesh);
-                        gameState.botHand.push(drawnTileMesh);
-                        sortHand(gameState.botHand, 'bot');
-                        gameMessageDisplay.textContent = `Bot yerden bir taş çekti.`;
-                        console.log("Bot çekti:", drawnTileData);
-                    } else {
-                        gameMessageDisplay.textContent = "Bot için destede taş kalmadı!";
-                    }
-                    gameState.turnPhase = 'discard'; // Çekme sonrası atma fazına geç
-                    setTimeout(botDiscardTile, 1500); // Atma işlemi için bekle
-                }, 1000);
-            }
-        }
-
-        function botDiscardTile() {
-            // --- Botun Akıllı Karar Verme Algoritması Gelecek ---
-            // Şimdilik: Elindeki ilk rastgele taşı atsın
-            if (gameState.botHand.length > 0) {
-                const randomIndex = Math.floor(Math.random() * gameState.botHand.length);
-                const tileToDiscardMesh = gameState.botHand[randomIndex];
-                const tileToDiscardData = tileToDiscardMesh.userData;
-
-                // Taşları elden çıkar
-                gameState.botHand.splice(randomIndex, 1);
-
-                // Taşı atılanlar bölgesine taşı
-                tileToDiscardMesh.position.set(
-                    DISCARD_PILE_X + (Math.random() - 0.5) * 0.5,
-                    OKEY_TILE_HEIGHT / 2,
-                    DISCARD_PILE_Z + (Math.random() - 0.5) * 0.5
-                );
-                tileToDiscardMesh.rotation.y = Math.random() * Math.PI;
-
-                // Botun attığı taşın rengini normale döndür
-                tileToDiscardMesh.material.color.set(TILE_COLORS[tileToDiscardData.color.toUpperCase()] || JOKER_COLOR || FAKE_JOKER_COLOR);
-                tileToDiscardMesh.rotation.z = 0; // Tekrar dik hale getir
-
-                gameState.discardPile.push(tileToDiscardData);
-                gameState.lastDiscardedTile = tileToDiscardMesh; // Son atılan taşı güncelle
-
-                gameMessageDisplay.textContent = `Bot bir taş attı: ${tileToDiscardData.color.toUpperCase()} ${tileToDiscardData.value || 'Joker'}`;
-                console.log("Bot attı:", tileToDiscardData);
-
-                sortHand(gameState.botHand, 'bot'); // Botun elini tekrar sırala
-            } else {
-                gameMessageDisplay.textContent = "Botun atacak taşı yok. (Oyun Hatalı)";
-            }
-
-            setTimeout(switchTurn, 1500); // Bot hamlesi sonrası sırayı oyuncuya geçir
-        }
-
-
-        // --- Etkileşim (Fare Olayları) ---
-
-        // Fare hareket ettiğinde (hover efekti için)
-        function onMouseMove(event) {
-            // Fare pozisyonunu normalize et (-1 ile +1 arası)
-            mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
-            mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
-
-            raycaster.setFromCamera(mouse, camera);
-            const intersects = raycaster.intersectObjects(gameState.playerHand); // Sadece oyuncunun elindeki taşlara bak
-
-            if (intersects.length > 0) {
-                if (INTERSECTED != intersects[0].object) {
-                    if (INTERSECTED) {
-                        INTERSECTED.material.emissive.setHex(INTERSECTED.currentHex); // Eski highlight'ı kaldır
-                    }
-                    INTERSECTED = intersects[0].object;
-                    if (INTERSECTED !== SELECTED_TILE) { // Eğer seçili değilse highlight yap
-                        INTERSECTED.currentHex = INTERSECTED.material.emissive.getHex();
-                        INTERSECTED.material.emissive.setHex(0x333300); // Sarımsı highlight
-                    }
-                }
-            } else {
-                if (INTERSECTED) {
-                    INTERSECTED.material.emissive.setHex(INTERSECTED.currentHex);
-                }
-                INTERSECTED = null;
-            }
-        }
-
-        // Fare tıklandığında (taş seçimi için)
-        function onClick(event) {
-            // Sadece oyuncunun sırasıysa ve atma fazındaysa taş seçilebilsin
-            if (gameState.currentPlayer !== 'player' || gameState.turnPhase !== 'discard') {
-                gameMessageDisplay.textContent = "Şu an taş seçemezsiniz.";
-                return;
-            }
-
-            raycaster.setFromCamera(mouse, camera);
-            const intersects = raycaster.intersectObjects(gameState.playerHand); // Sadece oyuncunun elindeki taşlara bak
-
-            if (intersects.length > 0) {
-                const clickedTile = intersects[0].object;
-
-                if (SELECTED_TILE === clickedTile) {
-                    // Aynı taşa tekrar tıklandıysa seçimi kaldır
-                    SELECTED_TILE.material.emissive.setHex(0x000000); // Önceki highlight'ı kaldır
-                    SELECTED_TILE = null;
-                    discardTileBtn.disabled = true;
-                    gameMessageDisplay.textContent = "Taş seçimi kaldırıldı.";
-                } else {
-                    // Başka bir taş seçildiyse önceki seçimi kaldır ve yenisini seç
-                    if (SELECTED_TILE) {
-                        SELECTED_TILE.material.emissive.setHex(0x000000); // Önceki highlight'ı kaldır
-                    }
-                    SELECTED_TILE = clickedTile;
-                    SELECTED_TILE.material.emissive.setHex(0x00FF00); // Yeşil highlight
-                    discardTileBtn.disabled = false; // Atma butonunu aktif et
-                    gameMessageDisplay.textContent = `Taş seçildi: ${SELECTED_TILE.userData.color.toUpperCase()} ${SELECTED_TILE.userData.value || 'Joker'}. Şimdi atabilirsiniz.`;
-                }
-            } else {
-                // Hiçbir taşa tıklanmadıysa seçimi kaldır
-                if (SELECTED_TILE) {
-                    SELECTED_TILE.material.emissive.setHex(0x000000); // Önceki highlight'ı kaldır
-                    SELECTED_TILE = null;
-                    discardTileBtn.disabled = true;
-                    gameMessageDisplay.textContent = "Hiçbir taş seçilmedi.";
-                }
-            }
-        }
-
-
-        // --- Pencere Boyutlandırma ve Animasyon ---
-        function onWindowResize() {
-            camera.aspect = window.innerWidth / window.innerHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
-        }
-
-        function animate() {
-            requestAnimationFrame(animate);
-            controls.update(); // Orbit kontrollerini güncelle
-            renderer.render(scene, camera);
-        }
-
-        // Uygulamayı başlat
-        initThreeJS();
-    </script>
+      });
+    });
+  }
+
+  // --- OYUN DÖNGÜSÜ ---
+  let prevTime = 0;
+  function animate(time=0){
+    requestAnimationFrame(animate);
+    const delta = (time - prevTime)/1000;
+    prevTime = time;
+
+    // Joystick hareketi
+    if(joystickActive){
+      const norm = Math.min(1, Math.sqrt(deltaX*deltaX + deltaY*deltaY)/40);
+      const angle = Math.atan2(deltaY, deltaX);
+      moveX = Math.cos(angle)*norm*playerSpeed*delta*-1;
+      moveZ = Math.sin(angle)*norm*playerSpeed*delta*-1;
+    } else {
+      moveX = 0; moveZ = 0;
+    }
+
+    // Klavye hareketi üst üste biner joystick ile
+    if(keys['w']) moveZ -= playerSpeed*delta;
+    if(keys['s']) moveZ += playerSpeed*delta;
+    if(keys['a']) moveX -= playerSpeed*delta;
+    if(keys['d']) moveX += playerSpeed*delta;
+
+    // Hareket uygula
+    if(inCar){
+      car.position.x += moveX;
+      car.position.z += moveZ;
+      player.position.copy(car.position);
+    } else {
+      player.position.x += moveX;
+      player.position.z += moveZ;
+    }
+
+    // NPC hareketi
+    updateNPCs(delta);
+
+    // Kamera oyuncuyu takip etsin
+    const targetPos = inCar ? car.position : player.position;
+    camera.position.lerp(new THREE.Vector3(targetPos.x, targetPos.y + 5, targetPos.z + 10), 0.1);
+    camera.lookAt(targetPos);
+
+    updateUI();
+    renderer.render(scene, camera);
+  }
+  animate();
+
+  // Pencere yeniden boyutlandırma
+  window.addEventListener('resize', () => {
+    camera.aspect = window.innerWidth/window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+  });
+
+  // Başlangıçta UI'yı güncelle
+  updateUI();
+  switchWeapon('tabanca');
+
+</script>
 </body>
 </html>
